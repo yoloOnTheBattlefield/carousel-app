@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { Progress } from "@quddify/ui/progress";
-import { Download, Copy, ArrowLeft, Palette, Loader2, RefreshCw, Instagram, Star, Pencil, ChevronLeft, ChevronRight, Search, Check, ChevronsUpDown, Smartphone, Monitor } from "lucide-react";
+import { Download, Copy, ArrowLeft, Palette, Loader2, RefreshCw, Instagram, Star, Pencil, ChevronLeft, ChevronRight, Search, Check, ChevronsUpDown, Smartphone, Monitor, ImageDown } from "lucide-react";
 import { useCarousel, useApplyLut, useRegenerateCarousel, useCarouselJob, usePublishToInstagram, useUpdateSlideCopy } from "@/hooks/useCarousels";
 import { SlideTextEditor, defaultTextOverlaySettings, type TextOverlaySettings } from "@/components/carousel/SlideTextEditor";
 import { useLuts, useLutData } from "@/hooks/useLuts";
@@ -8,6 +8,7 @@ import { ConfidenceBadge } from "@/components/carousel/ConfidenceBadge";
 import { LutPreview } from "@/components/carousel/LutPreview";
 import { SlideCompositionSwitcher } from "@/components/carousel/SlideCompositionSwitcher";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { ChatPanel } from "@/components/carousel/ChatPanel";
 import type { ClientLut } from "@/types";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { cn } from "@quddify/ui";
@@ -27,7 +28,6 @@ export default function CarouselResult() {
   const [downloading, setDownloading] = useState(false);
   const [previewLutId, setPreviewLutId] = useState<string | undefined>(undefined);
   const [overlaySettings, setOverlaySettings] = useState<Record<number, TextOverlaySettings>>({});
-  const [feedback, setFeedback] = useState("");
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [lutSearchOpen, setLutSearchOpen] = useState(false);
@@ -67,6 +67,43 @@ export default function CarouselResult() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [carousel]);
+
+  // Keyboard shortcuts for slide navigation — must be before early returns
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (!carousel || carousel.status !== "ready") return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          setActiveSlide((prev) => Math.max(0, prev - 1));
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          setActiveSlide((prev) => Math.min(carousel.slides.length - 1, prev + 1));
+          break;
+        case "Home":
+          e.preventDefault();
+          setActiveSlide(0);
+          break;
+        case "End":
+          e.preventDefault();
+          setActiveSlide(carousel.slides.length - 1);
+          break;
+        case "c":
+          if (e.metaKey || e.ctrlKey) break;
+          copyCaption();
+          break;
+        case "m":
+          setMobilePreview((prev) => !prev);
+          break;
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [carousel, copyCaption]);
 
   if (isLoading || !carousel) {
     return (
@@ -169,45 +206,24 @@ export default function CarouselResult() {
     }
   }
 
-  // Keyboard shortcuts for slide navigation
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (!carousel || carousel.status !== "ready") return;
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
-
-      switch (e.key) {
-        case "ArrowLeft":
-          e.preventDefault();
-          setActiveSlide((prev) => Math.max(0, prev - 1));
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          setActiveSlide((prev) => Math.min(carousel.slides.length - 1, prev + 1));
-          break;
-        case "Home":
-          e.preventDefault();
-          setActiveSlide(0);
-          break;
-        case "End":
-          e.preventDefault();
-          setActiveSlide(carousel.slides.length - 1);
-          break;
-        case "c":
-          if (e.metaKey || e.ctrlKey) break;
-          copyCaption();
-          break;
-        case "d":
-          downloadSlides();
-          break;
-        case "m":
-          setMobilePreview((prev) => !prev);
-          break;
-      }
+  async function downloadSingleSlide(slideIndex: number) {
+    if (!carousel) return;
+    const s = carousel.slides[slideIndex];
+    const key = s?.rendered_key || s?.image_key;
+    if (!key) return;
+    try {
+      const resp = await fetch(`/uploads/${key}`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `slide-${s.position}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to download slide");
     }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [carousel, copyCaption]);
+  }
 
   return (
     <div>
@@ -360,6 +376,14 @@ export default function CarouselResult() {
                     currentComposition={slide.composition}
                   />
                 )}
+                <button
+                  type="button"
+                  onClick={() => downloadSingleSlide(activeSlide)}
+                  title="Download this slide as PNG"
+                  className="flex items-center justify-center w-7 h-7 rounded-md text-[#555] hover:text-white hover:bg-[#222] transition-all cursor-pointer"
+                >
+                  <ImageDown className="w-3.5 h-3.5" />
+                </button>
                 {slide?.is_ai_generated_image && (
                   <span className="bg-[#c9a84c]/10 text-[#c9a84c] text-[10px] font-semibold px-2 py-0.5 rounded-md">AI Image</span>
                 )}
@@ -545,33 +569,10 @@ export default function CarouselResult() {
             </button>
           </div>
 
-          {/* Feedback Input + Regenerate */}
-          <div className="flex items-center gap-3">
-            <input
-              type="text"
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder="e.g. move text left, make writing punchier, more context about..."
-              className="flex-1 bg-[#111] border border-[#222] rounded-xl px-4 py-3 text-white text-[14px] placeholder:text-[#444] focus:outline-none focus:border-[#c9a84c]/50 transition-colors"
-            />
-            <button
-              onClick={() => {
-                if (!carouselId) return;
-                regenerate.mutate(
-                  { carouselId, lutId: carousel.lut_id },
-                  {
-                    onSuccess: () => toast.success("Regenerating carousel..."),
-                    onError: () => toast.error("Failed to start regeneration"),
-                  },
-                );
-              }}
-              disabled={regenerate.isPending}
-              className="flex items-center gap-2 bg-[#111] border border-[#222] rounded-xl px-5 py-3 text-[#888] text-[14px] font-medium hover:border-[#333] hover:text-white transition-all cursor-pointer flex-shrink-0 disabled:opacity-50"
-            >
-              {regenerate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              Regenerate
-            </button>
-          </div>
+          {/* Conversational Editing */}
+          {carouselId && (
+            <ChatPanel carouselId={carouselId} />
+          )}
 
           {/* Copywriting / Image Rationale */}
           {(slide?.copy_why || slide?.image_selection_reason) && (

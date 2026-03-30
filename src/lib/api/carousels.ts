@@ -1,5 +1,12 @@
 import api from "../api";
 import type { Carousel, CarouselJob, CarouselGoal, ContentType, LayoutPreset, SlideComposition } from "@/types";
+import type { ContentBrief } from "@/lib/style-presets";
+
+export interface GenerateBriefPayload {
+  client_id: string;
+  transcript_ids: string[];
+  goal?: CarouselGoal;
+}
 
 export interface GenerateCarouselPayload {
   client_id: string;
@@ -18,6 +25,8 @@ export interface GenerateCarouselPayload {
 }
 
 export const carouselsApi = {
+  generateBrief: (data: GenerateBriefPayload) =>
+    api.post<ContentBrief>("/carousels/generate-brief", data).then((r) => r.data),
   list: (clientId: string) =>
     api.get<Carousel[]>("/carousels", { params: { client_id: clientId } }).then((r) => r.data),
   get: (id: string) => api.get<Carousel>(`/carousels/${id}`).then((r) => r.data),

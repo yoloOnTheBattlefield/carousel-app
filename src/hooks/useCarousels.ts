@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Carousel, CarouselJob, CarouselGoal, ContentType, LayoutPreset, SlideComposition } from "@/types";
+import type { ContentBrief } from "@/lib/style-presets";
 import api from "@/lib/api";
 
 export function useCarousels(clientId: string | undefined) {
@@ -52,6 +53,12 @@ export function useGenerateCarousel() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["carousels", vars.client_id] });
     },
+  });
+}
+
+export function useGenerateBrief() {
+  return useMutation<ContentBrief, Error, { client_id: string; transcript_ids: string[]; goal?: CarouselGoal }>({
+    mutationFn: (data) => api.post("/carousels/generate-brief", data).then((r) => r.data),
   });
 }
 
