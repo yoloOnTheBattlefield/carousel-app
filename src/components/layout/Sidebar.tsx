@@ -47,6 +47,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSelectedClient } from "@/contexts/ClientContext";
 import { useCreateClient } from "@/hooks/useClients";
 
+const isClientRole = (role?: number) => role === 2;
+
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -93,10 +95,22 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   return (
     <>
     <Sidebar collapsible="icon" {...props}>
-      {/* Client picker */}
+      {/* Client picker (hidden for client-role users) */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
+            {isClientRole(user?.role) ? (
+              <SidebarMenuButton size="lg">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Users className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">
+                    {selectedClient?.name || "My Account"}
+                  </span>
+                </div>
+              </SidebarMenuButton>
+            ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
@@ -148,7 +162,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
