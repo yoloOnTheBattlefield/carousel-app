@@ -30,18 +30,30 @@ export interface IgOAuth {
   connected_at: string | null;
 }
 
+export interface AiIntegrations {
+  claude_token: string | null;
+  openai_token: string | null;
+  gemini_token: string | null;
+}
+
 export interface Client {
   _id: string;
   account_id: string;
+  user_id: string | null;
   name: string;
   slug: string;
+  email: string | null;
   niche: string;
   sales_rep_name: string;
   brand_kit: BrandKit;
   voice_profile: VoiceProfile;
   cta_defaults: CtaDefaults;
+  special_instructions: string;
   ig_username: string | null;
+  ig_bio: string | null;
+  ig_profile_picture_url: string | null;
   ig_oauth?: IgOAuth;
+  ai_integrations?: AiIntegrations;
   google_drive_folder_id: string | null;
   google_drive_sync_token: string | null;
   face_reference_images: string[];

@@ -1,362 +1,150 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@quddify/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@quddify/ui/table";
-import { Badge } from "@quddify/ui/badge";
-import { Input } from "@quddify/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@quddify/ui/select";
-import {
-  Users, Sparkles, CheckCircle, Clock, TrendingUp, Search,
-  AlertTriangle, Images, FileText, ArrowRight, Upload, Plus,
-} from "lucide-react";
-import { useDashboardOverview } from "@/hooks/useDashboard";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { ConfidenceBadge } from "@/components/carousel/ConfidenceBadge";
-import { DashboardSkeleton } from "@/components/shared/LoadingSkeleton";
+import { Plus, Clock, ChevronRight, LayoutDashboard } from "lucide-react";
+import { useCarousels } from "@/hooks/useCarousels";
+import { useSelectedClient } from "@/contexts/ClientContext";
+import { EmptyState } from "@/components/shared/EmptyState";
+import type { Carousel } from "@/types";
 
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return "Never";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
+const STATUS_COLORS: Record<string, string> = {
+  queued: "bg-[#c9a84c]/20 text-[#c9a84c]",
+  generating: "bg-[#c9a84c]/20 text-[#c9a84c]",
+  ready: "bg-emerald-500/20 text-emerald-400",
+  failed: "bg-[#e84057]/20 text-[#e84057]",
+};
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function CarouselCard({ carousel }: { carousel: Carousel }) {
+  const statusClass = STATUS_COLORS[carousel.status] || STATUS_COLORS.ready;
+  const slides = carousel.slides || [];
+  const title = carousel.angle?.chosen_angle || slides[0]?.copy?.slice(0, 60) || "Carousel";
+
+  return (
+    <Link
+      to={`/carousels/${carousel._id}`}
+      className="group block rounded-2xl border border-[#222] bg-[#111] hover:border-[#333] transition-all"
+    >
+      {/* Slide preview strip */}
+      <div className="flex gap-1 p-3 pb-0 overflow-hidden">
+        {slides.slice(0, 4).map((slide, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-lg aspect-[4/5] overflow-hidden bg-[#1a1a1a]"
+          >
+            {slide.rendered_key ? (
+              <img
+                src={slide.rendered_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center p-1">
+                <p className="text-[7px] font-semibold leading-tight text-center line-clamp-3 text-[#555]">
+                  {slide.copy?.slice(0, 40) || slide.role}
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+        {slides.length > 4 && (
+          <div className="flex-1 rounded-lg aspect-[4/5] bg-[#1a1a1a] flex items-center justify-center">
+            <span className="text-[11px] text-[#555]">+{slides.length - 4}</span>
+          </div>
+        )}
+        {slides.length === 0 && (
+          <div className="flex-1 rounded-lg aspect-[4/5] bg-[#1a1a1a] flex items-center justify-center">
+            <span className="text-[11px] text-[#444]">No slides yet</span>
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-white text-[14px] font-semibold truncate">{title}</h3>
+            <p className="text-[#555] text-[12px] mt-0.5 truncate capitalize">
+              {carousel.goal.replace(/_/g, " ")}
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#333] group-hover:text-[#555] transition-colors shrink-0 mt-0.5" />
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${statusClass}`}>
+            {carousel.status}
+          </span>
+          <span className="text-[11px] text-[#444] flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {new Date(carousel.created_at).toLocaleDateString()}
+          </span>
+          <span className="text-[11px] text-[#444] ml-auto">
+            {slides.length} slides
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
 }
 
 export default function Dashboard() {
-  const { data, isLoading } = useDashboardOverview();
-  const [carouselSearch, setCarouselSearch] = useState("");
-  const [clientFilter, setClientFilter] = useState("all");
+  const { selectedClientId } = useSelectedClient();
+  const { data: carousels, isLoading } = useCarousels(selectedClientId ?? undefined);
 
-  if (isLoading || !data) {
-    return <DashboardSkeleton />;
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-8 w-48 rounded bg-[#1a1a1a] animate-pulse" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-[#222] bg-[#111] h-56 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
-
-  const { totals, clients, recent_carousels } = data;
-
-  // Filter recent carousels
-  const filteredCarousels = recent_carousels.filter((c) => {
-    if (clientFilter !== "all" && c.client_id !== clientFilter) return false;
-    if (carouselSearch && !c.client_name.toLowerCase().includes(carouselSearch.toLowerCase()) && !c.goal.toLowerCase().includes(carouselSearch.toLowerCase())) return false;
-    return true;
-  });
-
-  // Get unique client names for filter dropdown
-  const carouselClients = [...new Map(recent_carousels.map((c) => [c.client_id, c.client_name])).entries()];
-
-  // Actionable insights
-  const readyToPublish = recent_carousels.filter((c) => c.status === "ready").length;
-  const failedCarousels = recent_carousels.filter((c) => c.status === "failed").length;
-  const clientsWithoutImages = clients.filter((c) => c.total_images === 0);
-  const clientsWithoutTranscripts = clients.filter((c) => c.total_transcripts === 0);
-  const incompleteSetup = clients.filter((c) => !c.has_brand_kit || !c.has_voice_profile);
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Agency Dashboard</h1>
+        <div>
+          <h1 className="text-[28px] font-bold text-white tracking-tight">Carousels</h1>
+          <p className="text-[#555] text-[14px] mt-1">
+            {carousels?.length
+              ? `${carousels.length} carousel${carousels.length !== 1 ? "s" : ""}`
+              : "Create your first carousel in 60 seconds"}
+          </p>
+        </div>
         <Link
-          to="/onboard"
-          className="flex items-center gap-2 bg-[#c9a84c] text-black font-semibold px-4 py-2 rounded-xl text-[13px] hover:bg-[#d4b55a] transition-colors"
+          to="/create"
+          className="flex items-center gap-2 bg-[#c9a84c] text-black font-semibold px-5 py-2.5 rounded-xl text-[13px] hover:bg-[#d4b55a] transition-colors"
         >
-          <Plus className="h-4 w-4" /> New Client
+          <Plus className="h-4 w-4" />
+          New Carousel
         </Link>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Clients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.clients}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active accounts</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Carousels</CardTitle>
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.carousels}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totals.ready_carousels} ready, {totals.carousels - totals.ready_carousels - totals.pending_carousels} other
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Ready</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold">{totals.ready_carousels}</span>
-              {totals.carousels > 0 && (
-                <span className="text-xs text-emerald-500 flex items-center gap-0.5">
-                  <TrendingUp className="h-3 w-3" />
-                  {Math.round((totals.ready_carousels / totals.carousels) * 100)}%
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Success rate</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.pending_carousels}</div>
-            {totals.pending_carousels === 0 ? (
-              <Link to="/clients" className="text-xs text-primary hover:underline mt-1 inline-block">
-                Generate one now &rarr;
-              </Link>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-1">Currently generating</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Action Items */}
-      {(readyToPublish > 0 || failedCarousels > 0 || incompleteSetup.length > 0 || clientsWithoutImages.length > 0 || clientsWithoutTranscripts.length > 0) && (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {readyToPublish > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                <CheckCircle className="h-4 w-4 text-emerald-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-emerald-400">{readyToPublish} carousel{readyToPublish !== 1 ? "s" : ""} ready to publish</p>
-                <p className="text-[11px] text-[#555]">Review and schedule or post to Instagram</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-emerald-400/50 shrink-0" />
-            </div>
-          )}
-          {failedCarousels > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-[#e84057]/20 bg-[#e84057]/5 px-4 py-3">
-              <div className="w-8 h-8 rounded-lg bg-[#e84057]/10 flex items-center justify-center shrink-0">
-                <AlertTriangle className="h-4 w-4 text-[#e84057]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[#e84057]">{failedCarousels} failed generation{failedCarousels !== 1 ? "s" : ""}</p>
-                <p className="text-[11px] text-[#555]">Check errors and retry</p>
-              </div>
-            </div>
-          )}
-          {clientsWithoutImages.length > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/5 px-4 py-3">
-              <div className="w-8 h-8 rounded-lg bg-[#c9a84c]/10 flex items-center justify-center shrink-0">
-                <Images className="h-4 w-4 text-[#c9a84c]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[#c9a84c]">{clientsWithoutImages.length} client{clientsWithoutImages.length !== 1 ? "s" : ""} need images</p>
-                <p className="text-[11px] text-[#555] truncate">{clientsWithoutImages.map((c) => c.name).join(", ")}</p>
-              </div>
-              {clientsWithoutImages.length === 1 && (
-                <Link to={`/clients/${clientsWithoutImages[0]._id}/images`} className="shrink-0">
-                  <Upload className="h-4 w-4 text-[#c9a84c]/50 hover:text-[#c9a84c] transition-colors" />
-                </Link>
-              )}
-            </div>
-          )}
-          {clientsWithoutTranscripts.length > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/5 px-4 py-3">
-              <div className="w-8 h-8 rounded-lg bg-[#c9a84c]/10 flex items-center justify-center shrink-0">
-                <FileText className="h-4 w-4 text-[#c9a84c]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[#c9a84c]">{clientsWithoutTranscripts.length} client{clientsWithoutTranscripts.length !== 1 ? "s" : ""} need transcripts</p>
-                <p className="text-[11px] text-[#555] truncate">{clientsWithoutTranscripts.map((c) => c.name).join(", ")}</p>
-              </div>
-            </div>
-          )}
-          {incompleteSetup.length > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-[#222] bg-[#111] px-4 py-3">
-              <div className="w-8 h-8 rounded-lg bg-[#1a1a1a] flex items-center justify-center shrink-0">
-                <Users className="h-4 w-4 text-[#555]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[#888]">{incompleteSetup.length} client{incompleteSetup.length !== 1 ? "s" : ""} incomplete setup</p>
-                <p className="text-[11px] text-[#555] truncate">{incompleteSetup.map((c) => c.name).join(", ")}</p>
-              </div>
-            </div>
-          )}
+      {/* Grid */}
+      {!carousels?.length ? (
+        <EmptyState
+          icon={<LayoutDashboard className="h-10 w-10 text-[#333]" />}
+          title="No carousels yet"
+          description="Select a client, pick transcripts, and let AI generate your carousel."
+          action={
+            <Link
+              to="/create"
+              className="flex items-center gap-2 bg-[#c9a84c] text-black font-semibold px-5 py-2.5 rounded-xl text-[13px] hover:bg-[#d4b55a] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Create Your First Carousel
+            </Link>
+          }
+        />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {carousels.map((c) => (
+            <CarouselCard key={c._id} carousel={c} />
+          ))}
         </div>
       )}
-
-      {/* All Clients */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Clients</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {clients.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-muted-foreground mb-2">No clients yet</p>
-              <Link to="/onboard" className="text-sm text-primary hover:underline">
-                Add your first client &rarr;
-              </Link>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Niche</TableHead>
-                  <TableHead className="text-center">Images</TableHead>
-                  <TableHead className="text-center">Transcripts</TableHead>
-                  <TableHead className="text-center">Carousels</TableHead>
-                  <TableHead className="text-center">Avg Confidence</TableHead>
-                  <TableHead className="text-center">Setup</TableHead>
-                  <TableHead>Last Carousel</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clients.map((c) => (
-                  <TableRow key={c._id}>
-                    <TableCell>
-                      <Link to={`/clients/${c._id}`} className="font-medium hover:underline">
-                        {c.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="capitalize text-muted-foreground">{c.niche}</TableCell>
-                    <TableCell className="text-center">
-                      {c.total_images === 0 ? (
-                        <Link to={`/clients/${c._id}/images`} className="text-[#c9a84c] text-xs hover:underline">Upload</Link>
-                      ) : (
-                        c.total_images
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {c.total_transcripts === 0 ? (
-                        <Link to={`/clients/${c._id}/transcripts`} className="text-[#c9a84c] text-xs hover:underline">Add</Link>
-                      ) : (
-                        c.total_transcripts
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span>{c.ready_carousels}</span>
-                      {c.pending_carousels > 0 && (
-                        <span className="ml-1 text-xs text-muted-foreground">+{c.pending_carousels} pending</span>
-                      )}
-                      {c.failed_carousels > 0 && (
-                        <span className="ml-1 text-xs text-destructive">({c.failed_carousels} failed)</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {c.avg_confidence !== null ? <ConfidenceBadge score={c.avg_confidence} /> : <span className="text-muted-foreground">&mdash;</span>}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex justify-center gap-1">
-                        <Badge variant={c.has_brand_kit ? "default" : "outline"} className="text-[10px]">Brand</Badge>
-                        <Badge variant={c.has_voice_profile ? "default" : "outline"} className="text-[10px]">Voice</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{timeAgo(c.last_carousel_date)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Carousels with filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Recent Carousels</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search..."
-                  value={carouselSearch}
-                  onChange={(e) => setCarouselSearch(e.target.value)}
-                  className="h-8 w-[150px] pl-8 text-xs"
-                />
-              </div>
-              {carouselClients.length > 1 && (
-                <Select value={clientFilter} onValueChange={setClientFilter}>
-                  <SelectTrigger className="h-8 w-[140px] text-xs">
-                    <SelectValue placeholder="All clients" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All clients</SelectItem>
-                    {carouselClients.map(([id, name]) => (
-                      <SelectItem key={id} value={id}>{name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {recent_carousels.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-muted-foreground mb-2">No carousels generated yet</p>
-              <Link to="/clients" className="text-sm text-primary hover:underline">
-                Pick a client and generate &rarr;
-              </Link>
-            </div>
-          ) : filteredCarousels.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No carousels match your filters</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Goal</TableHead>
-                  <TableHead className="text-center">Slides</TableHead>
-                  <TableHead className="text-center">Confidence</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCarousels.map((c) => (
-                  <TableRow key={c._id}>
-                    <TableCell>
-                      <Link to={`/clients/${c.client_id}`} className="hover:underline">
-                        {c.client_name}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(c.created_at)}</TableCell>
-                    <TableCell className="capitalize">{c.goal.replace(/_/g, " ")}</TableCell>
-                    <TableCell className="text-center">{c.slides_count}</TableCell>
-                    <TableCell className="text-center"><ConfidenceBadge score={c.confidence} /></TableCell>
-                    <TableCell><StatusBadge status={c.status} /></TableCell>
-                    <TableCell>
-                      {c.status === "ready" && (
-                        <Link
-                          to={`/clients/${c.client_id}/carousels/${c._id}`}
-                          className="text-[11px] text-[#c9a84c] hover:underline"
-                        >
-                          View &rarr;
-                        </Link>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

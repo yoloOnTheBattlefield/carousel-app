@@ -47,6 +47,7 @@ export interface ClientImage {
   source: "google_drive" | "manual_upload" | "ai_generated";
   manual_tags: string[];
   summary: string;
+  thumbnail_url?: string;
   created_at: string;
   updated_at: string;
 }

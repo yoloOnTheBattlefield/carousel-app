@@ -12,7 +12,16 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': {
+        target: 'http://localhost:3000',
+        timeout: 300000,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            // Remove default size limit on proxy requests
+            proxyReq.setSocketKeepAlive(true);
+          });
+        },
+      },
       '/uploads': 'http://localhost:3000',
     },
   },

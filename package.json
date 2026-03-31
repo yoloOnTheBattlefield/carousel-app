@@ -13,7 +13,7 @@
     "@base-ui/react": "^1.2.0",
     "@fontsource-variable/dm-sans": "^5.2.8",
     "@fontsource-variable/geist": "^5.2.8",
-    "@quddify/ui": "*",
+    "@quddify/ui": "file:./packages/ui",
     "@tanstack/react-query": "^5.90.21",
     "axios": "^1.13.6",
     "class-variance-authority": "^0.7.1",

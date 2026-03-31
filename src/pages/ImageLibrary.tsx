@@ -1,13 +1,13 @@
-import { useParams } from "react-router-dom";
 import { Badge } from "@quddify/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@quddify/ui/select";
-import { Images, Upload, Loader2, X, RefreshCw, Star, ChevronDown, Tag, CheckSquare, Square, Trash2 } from "lucide-react";
-import { useImages, useUploadImages, useTagVocabulary, useRetagImages } from "@/hooks/useImages";
+import { Images, Upload, Loader2, X, RefreshCw, Star, ChevronDown, Tag, CheckSquare, Square, Trash2, Check, AlertTriangle } from "lucide-react";
+import { useImages, useUploadImages, useTagVocabulary, useRetagImages, useRetryTagImages, useBulkDeleteImages, useUploadProgress } from "@/hooks/useImages";
+import { useSelectedClient } from "@/contexts/ClientContext";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ImageGridSkeleton } from "@/components/shared/LoadingSkeleton";
 import ImageTagEditor from "@/components/shared/ImageTagEditor";
 import type { ClientImage } from "@/types";
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback, DragEvent } from "react";
 
 const FILTER_CATEGORIES = [
   { key: "emotion", label: "Emotion" },
@@ -27,7 +27,7 @@ function formatTag(tag: string) {
 type UsageFilter = "all" | "unused" | "used";
 
 export default function ImageLibrary() {
-  const { id: clientId } = useParams<{ id: string }>();
+  const { selectedClientId: clientId } = useSelectedClient();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [usageFilter, setUsageFilter] = useState<UsageFilter>("all");
   const [manualTagFilter, setManualTagFilter] = useState<string>("");
@@ -36,14 +36,86 @@ export default function ImageLibrary() {
   const [showRetagConfirm, setShowRetagConfirm] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
-  const { data, isLoading } = useImages(clientId, filters);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+  const { data, isLoading } = useImages(clientId, { ...filters, limit: "500" });
   const { data: tagVocab } = useTagVocabulary();
   const images = data?.images ?? [];
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadMutation = useUploadImages();
   const retagMutation = useRetagImages();
+  const retryTagMutation = useRetryTagImages();
+  const bulkDeleteMutation = useBulkDeleteImages();
+  const progress = useUploadProgress(images);
+
+  const processingCount = images.filter((img) => img.status === "processing").length;
+  const failedCount = images.filter((img) => img.status === "failed").length;
+  const failedIds = images.filter((img) => img.status === "failed").map((img) => img._id);
+
+  const handleUpload = useCallback((files: File[]) => {
+    if (files.length === 0 || !clientId) return;
+    progress.setIsUploading(true);
+    progress.setUploadPercent(0);
+    uploadMutation.mutate(
+      {
+        clientId,
+        files,
+        onProgress: (percent) => progress.setUploadPercent(percent),
+      },
+      {
+        onSuccess: (data) => {
+          progress.setIsUploading(false);
+          progress.setUploadPercent(100);
+          if (data.image_ids) {
+            progress.startTracking(data.image_ids.length, data.image_ids);
+          } else {
+            progress.startTracking(files.length, []);
+          }
+        },
+        onError: () => {
+          progress.setIsUploading(false);
+          progress.reset();
+        },
+      },
+    );
+  }, [clientId, uploadMutation, progress]);
+
+  const handleDrop = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    dragCounter.current = 0;
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+    handleUpload(files);
+  }, [handleUpload]);
+
+  const handleDragEnter = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: DragEvent) => {
+    e.preventDefault();
+  }, []);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length + (manualTagFilter ? 1 : 0);
+
+  const filteredImages = images.filter((img) => {
+    if (usageFilter === "unused" && img.total_uses !== 0) return false;
+    if (usageFilter === "used" && img.total_uses === 0) return false;
+    if (manualTagFilter && !(img.manual_tags ?? []).includes(manualTagFilter)) return false;
+    return true;
+  });
 
   const toggleSelect = useCallback((id: string, shiftKey?: boolean) => {
     setSelectedIds((prev) => {
@@ -91,13 +163,6 @@ export default function ImageLibrary() {
     setManualTagFilter("");
   }
 
-  const filteredImages = images.filter((img) => {
-    if (usageFilter === "unused" && img.total_uses !== 0) return false;
-    if (usageFilter === "used" && img.total_uses === 0) return false;
-    if (manualTagFilter && !(img.manual_tags ?? []).includes(manualTagFilter)) return false;
-    return true;
-  });
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -113,7 +178,24 @@ export default function ImageLibrary() {
   }
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6 relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Full-page drop overlay */}
+      {isDragging && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+          <div className="border-2 border-dashed border-[#c9a84c] rounded-3xl p-16 flex flex-col items-center gap-3">
+            <Upload className="h-10 w-10 text-[#c9a84c]" />
+            <p className="text-white text-[16px] font-medium">Drop photos to upload</p>
+            <p className="text-[#888] text-[13px]">JPG, PNG, HEIC, WebP</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -132,10 +214,8 @@ export default function ImageLibrary() {
           className="hidden"
           onChange={(e) => {
             const files = Array.from(e.target.files || []);
-            if (files.length > 0 && clientId) {
-              uploadMutation.mutate({ clientId, files });
-              e.target.value = "";
-            }
+            handleUpload(files);
+            e.target.value = "";
           }}
         />
         <div className="flex gap-2">
@@ -219,6 +299,8 @@ export default function ImageLibrary() {
         <div
           className="border border-dashed border-[#333] rounded-2xl bg-[#111] flex flex-col items-center justify-center py-10 cursor-pointer hover:border-[#444] transition-colors relative"
           onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
         >
           <button
             onClick={(e) => { e.stopPropagation(); setShowUploadZone(false); }}
@@ -249,6 +331,8 @@ export default function ImageLibrary() {
         <div
           className="border border-dashed border-[#333] rounded-2xl bg-[#111] flex flex-col items-center justify-center py-10 cursor-pointer hover:border-[#444] transition-colors"
           onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
         >
           <div className="w-11 h-11 rounded-full bg-[#1a1a1a] border border-[#222] flex items-center justify-center mb-3">
             <Upload className="w-5 h-5 text-[#555]" />
@@ -262,6 +346,98 @@ export default function ImageLibrary() {
         </div>
       )}
 
+      {/* Upload & Processing Progress */}
+      {(progress.isUploading || progress.totalInBatch > 0) && (
+        <div className="rounded-2xl border border-[#c9a84c]/20 bg-[#c9a84c]/5 overflow-hidden">
+          <div className="p-4 space-y-3">
+            {/* Upload progress */}
+            {progress.isUploading && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-3.5 w-3.5 text-[#c9a84c]" />
+                    <span className="text-[13px] text-[#c9a84c] font-medium">Uploading files...</span>
+                  </div>
+                  <span className="text-[12px] text-[#c9a84c]/70 tabular-nums">{progress.uploadPercent}%</span>
+                </div>
+                <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#c9a84c] rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${progress.uploadPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Processing progress */}
+            {progress.totalInBatch > 0 && !progress.isUploading && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {progress.isComplete ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-[#c9a84c]" />
+                    )}
+                    <span className={`text-[13px] font-medium ${progress.isComplete ? "text-emerald-400" : "text-[#c9a84c]"}`}>
+                      {progress.isComplete
+                        ? `All ${progress.totalInBatch} images processed`
+                        : `Analyzing images — ${progress.processedCount} of ${progress.totalInBatch} done`}
+                    </span>
+                  </div>
+                  <span className={`text-[12px] tabular-nums ${progress.isComplete ? "text-emerald-400/70" : "text-[#c9a84c]/70"}`}>
+                    {Math.round((progress.processedCount / progress.totalInBatch) * 100)}%
+                  </span>
+                </div>
+                <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ease-out ${progress.isComplete ? "bg-emerald-400" : "bg-[#c9a84c]"}`}
+                    style={{ width: `${(progress.processedCount / progress.totalInBatch) * 100}%` }}
+                  />
+                </div>
+
+                {/* Per-image status list */}
+                {!progress.isComplete && progress.totalInBatch <= 20 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {images
+                      .filter((img) => progress.newlyReady.has(img._id) || (progress.totalInBatch > 0 && img.status !== "ready"))
+                      .slice(0, 12)
+                      .map((img) => (
+                        <div
+                          key={img._id}
+                          className={`flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg border ${
+                            img.status === "ready"
+                              ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-400"
+                              : "border-[#222] bg-[#111] text-[#666]"
+                          }`}
+                        >
+                          {img.status === "ready" ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
+                          <span className="max-w-25 truncate">{img.original_filename}</span>
+                          {img.status === "ready" && <Tag className="h-2.5 w-2.5 text-emerald-400/60" />}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Dismiss button when complete */}
+          {progress.isComplete && (
+            <button
+              onClick={progress.reset}
+              className="w-full py-2 text-[12px] text-[#555] hover:text-white border-t border-[#222] transition-colors cursor-pointer"
+            >
+              Dismiss
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Status Messages */}
       {retagMutation.isSuccess && (
         <div className="flex items-center rounded-xl border border-[#222] bg-[#111] p-3 text-[13px] text-[#888]">
@@ -271,17 +447,42 @@ export default function ImageLibrary() {
           </button>
         </div>
       )}
-      {uploadMutation.isSuccess && (
-        <div className="flex items-center rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/5 p-3 text-[13px] text-[#c9a84c]">
-          <span>Uploaded {uploadMutation.data.uploaded} image{uploadMutation.data.uploaded !== 1 ? "s" : ""}. AI tagging in progress.</span>
-          <button onClick={() => uploadMutation.reset()} className="ml-auto text-[#c9a84c]/60 hover:text-[#c9a84c] transition-colors">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
       {uploadMutation.isError && (
         <div className="rounded-xl border border-[#e84057]/20 bg-[#e84057]/5 p-3 text-[13px] text-[#e84057]">
           Upload failed. Please try again.
+        </div>
+      )}
+
+      {/* Processing Banner (for non-upload processing, e.g. retag) */}
+      {processingCount > 0 && !progress.totalInBatch && (
+        <div className="flex items-center gap-3 rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/5 p-3">
+          <Loader2 className="h-4 w-4 animate-spin text-[#c9a84c] shrink-0" />
+          <span className="text-[13px] text-[#c9a84c]">
+            {processingCount} image{processingCount !== 1 ? "s" : ""} being analyzed by AI...
+          </span>
+        </div>
+      )}
+
+      {/* Failed Tagging Banner */}
+      {failedCount > 0 && (
+        <div className="flex items-center justify-between rounded-xl border border-[#e84057]/20 bg-[#e84057]/5 p-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-[#e84057] shrink-0" />
+            <span className="text-[13px] text-[#e84057]">
+              {failedCount} image{failedCount !== 1 ? "s" : ""} couldn't be tagged — photos are saved, just untagged.
+            </span>
+          </div>
+          <button
+            onClick={() => retryTagMutation.mutate(failedIds)}
+            disabled={retryTagMutation.isPending}
+            className="flex items-center gap-1.5 bg-[#e84057]/10 border border-[#e84057]/30 text-[#e84057] hover:bg-[#e84057]/20 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+          >
+            {retryTagMutation.isPending ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Retrying...</>
+            ) : (
+              <><RefreshCw className="h-3 w-3" /> Retry Tagging</>
+            )}
+          </button>
         </div>
       )}
 
@@ -308,13 +509,18 @@ export default function ImageLibrary() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                // Bulk delete placeholder — would need a bulk delete mutation
-                clearSelection();
+                bulkDeleteMutation.mutate(Array.from(selectedIds), {
+                  onSuccess: () => clearSelection(),
+                });
               }}
-              className="flex items-center gap-1.5 text-[12px] text-[#e84057] hover:text-[#ff5070] transition-colors cursor-pointer"
+              disabled={bulkDeleteMutation.isPending}
+              className="flex items-center gap-1.5 text-[12px] text-[#e84057] hover:text-[#ff5070] transition-colors disabled:opacity-50 cursor-pointer"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
+              {bulkDeleteMutation.isPending ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting...</>
+              ) : (
+                <><Trash2 className="h-3.5 w-3.5" /> Delete {selectedIds.size}</>
+              )}
             </button>
           </div>
         </div>
@@ -439,7 +645,7 @@ export default function ImageLibrary() {
               key={img._id}
               className={`relative rounded-2xl overflow-hidden bg-[#111] border group cursor-pointer hover:border-[#333] transition-all ${
                 selectedIds.has(img._id) ? "border-[#c9a84c] ring-1 ring-[#c9a84c]/30" : "border-[#222]"
-              }`}
+              } ${progress.newlyReady.has(img._id) ? "animate-in fade-in zoom-in-95 duration-500" : ""}`}
               style={{ aspectRatio: "9/11" }}
               onClick={(e) => {
                 if (selectMode) {
@@ -448,7 +654,7 @@ export default function ImageLibrary() {
               }}
             >
               <img
-                src={`/uploads/${img.thumbnail_key || img.storage_key}`}
+                src={img.thumbnail_url}
                 alt={img.original_filename}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="lazy"
@@ -485,6 +691,13 @@ export default function ImageLibrary() {
                 </div>
               )}
 
+              {/* Untagged Badge */}
+              {img.status === "failed" && (
+                <div className="absolute top-3 right-3 bg-[#e84057]/20 backdrop-blur-sm text-[#e84057] text-[10px] font-semibold px-2 py-0.5 rounded-lg">
+                  Untagged
+                </div>
+              )}
+
               {/* Tag Button (visible on hover) */}
               <button
                 onClick={() => setEditingImage(img)}
@@ -495,12 +708,29 @@ export default function ImageLibrary() {
               </button>
 
               {/* Status indicator for processing */}
-              {img.status !== "ready" && (
+              {img.status === "processing" && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <div className="flex items-center gap-2 bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-lg">
                     <Loader2 className="h-3 w-3 animate-spin text-[#c9a84c]" />
-                    <span className="text-[11px] text-[#888] capitalize">{img.status}</span>
+                    <span className="text-[11px] text-[#888]">Analyzing...</span>
                   </div>
+                </div>
+              )}
+
+              {/* Failed tagging indicator */}
+              {img.status === "failed" && (
+                <div className="absolute inset-0 bg-black/30 flex items-end justify-center pb-14">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      retryTagMutation.mutate([img._id]);
+                    }}
+                    disabled={retryTagMutation.isPending}
+                    className="flex items-center gap-1.5 bg-black/70 backdrop-blur-sm text-[#e84057] px-3 py-1.5 rounded-lg text-[11px] font-medium hover:bg-black/90 transition-all cursor-pointer"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Retry Tag
+                  </button>
                 </div>
               )}
 

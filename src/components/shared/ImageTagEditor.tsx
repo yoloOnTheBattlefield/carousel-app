@@ -72,7 +72,7 @@ export default function ImageTagEditor({ image, onClose }: ImageTagEditorProps) 
         {/* Header with image preview */}
         <div className="flex gap-4 p-5 border-b border-[#222]">
           <img
-            src={`/uploads/${image.thumbnail_key || image.storage_key}`}
+            src={image.thumbnail_url}
             alt={image.original_filename}
             className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
           />

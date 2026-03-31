@@ -75,6 +75,35 @@ export function useDisconnectInstagram() {
   });
 }
 
+export function useGenerateVoiceProfile() {
+  const qc = useQueryClient();
+  return useMutation<{ voice_profile: { raw_text: string } }, Error, { clientId: string; transcript: string }>({
+    mutationFn: ({ clientId, transcript }) =>
+      api.post(`/clients/${clientId}/generate-voice-profile`, { transcript }).then((r) => r.data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["clients", vars.clientId] });
+    },
+  });
+}
+
+export function useUploadProfilePicture() {
+  const qc = useQueryClient();
+  return useMutation<{ ig_profile_picture_url: string }, Error, { clientId: string; file?: File; url?: string }>({
+    mutationFn: ({ clientId, file, url }) => {
+      const form = new FormData();
+      if (file) {
+        form.append("image", file);
+      } else if (url) {
+        form.append("url", url);
+      }
+      return api.post(`/clients/${clientId}/upload-profile-picture`, form).then((r) => r.data);
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["clients", vars.clientId] });
+    },
+  });
+}
+
 export function useCloneClientSettings() {
   const qc = useQueryClient();
   return useMutation({

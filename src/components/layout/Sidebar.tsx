@@ -1,28 +1,20 @@
-import { Link, useParams, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Users,
+  Plus,
   Images,
-  FileText,
-  Bookmark,
-  LayoutTemplate,
-  Sparkles,
-  History,
-  Eye,
-  Film,
-  CalendarDays,
-  BarChart3,
-  Plug,
-  TrendingUp,
-  RectangleVertical,
-  ImageIcon,
-  Search,
+  Settings,
+  LogOut,
+  Users,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
@@ -31,222 +23,300 @@ import {
   SidebarRail,
   SidebarSeparator,
 } from "@quddify/ui/sidebar";
-import { useClient } from "@/hooks/useClients";
-
-const mainLinks = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/clients", label: "Clients", icon: Users },
-];
-
-const toolLinks = [
-  { to: "/calendar", label: "Calendar", icon: CalendarDays },
-  { to: "/reels", label: "Reels", icon: Film },
-  { to: "/templates", label: "Templates", icon: LayoutTemplate },
-  { to: "/styles", label: "Styles", icon: Sparkles },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-];
-
-const clientContentLinks = [
-  { to: "images", label: "Images", icon: Images },
-  { to: "transcripts", label: "Transcripts", icon: FileText },
-  { to: "swipe-file", label: "Swipe File", icon: Bookmark },
-  { to: "content-research", label: "Research", icon: Eye },
-  { to: "post-insights", label: "Post Insights", icon: TrendingUp },
-];
-
-const clientGenerateLinks = [
-  { to: "generate", label: "Carousel", icon: Sparkles },
-  { to: "stories", label: "Stories", icon: RectangleVertical },
-  { to: "thumbnails", label: "Thumbnails", icon: ImageIcon },
-];
-
-const clientManageLinks = [
-  { to: "history", label: "History", icon: History },
-  { to: "integrations", label: "Integrations", icon: Plug },
-];
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@quddify/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@quddify/ui/dialog";
+import { Button } from "@quddify/ui/button";
+import { Input } from "@quddify/ui/input";
+import { Label } from "@quddify/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSelectedClient } from "@/contexts/ClientContext";
+import { useCreateClient } from "@/hooks/useClients";
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { id: clientId } = useParams<{ id: string }>();
   const location = useLocation();
-  const { data: client } = useClient(clientId);
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { clients, selectedClient, setSelectedClientId } = useSelectedClient();
+  const createClient = useCreateClient();
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newClientPassword, setNewClientPassword] = useState("");
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  const handleCreateClient = () => {
+    if (!newClientName.trim() || !newClientEmail.trim() || !newClientPassword.trim()) return;
+    createClient.mutate(
+      {
+        name: newClientName.trim(),
+        email: newClientEmail.trim(),
+        password: newClientPassword.trim(),
+      } as Record<string, string>,
+      {
+        onSuccess: (client: { _id: string }) => {
+          setSelectedClientId(client._id);
+          setShowNewClient(false);
+          setNewClientName("");
+          setNewClientEmail("");
+          setNewClientPassword("");
+        },
+      },
+    );
+  };
+
+  const initials = (() => {
+    const parts = user?.name?.trim().split(/\s+/);
+    if (!parts || parts.length === 0 || !parts[0]) return "?";
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  })();
 
   return (
+    <>
     <Sidebar collapsible="icon" {...props}>
+      {/* Client picker */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <LayoutDashboard className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">Carousel</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          {/* Search shortcut hint */}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Search (⌘K)"
-              onClick={() => {
-                document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
-              }}
-              className="text-muted-foreground"
-            >
-              <Search />
-              <span className="flex items-center justify-between flex-1">
-                Search
-                <kbd className="text-[10px] text-[#444] border border-[#222] rounded px-1 py-0.5 font-mono ml-auto">⌘K</kbd>
-              </span>
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                    <Users className="size-4" />
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">
+                      {selectedClient?.name || "Select client"}
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                align="start"
+                sideOffset={4}
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Clients
+                  </DropdownMenuLabel>
+                  {clients.map((client) => (
+                    <DropdownMenuItem
+                      key={client._id}
+                      onClick={() => setSelectedClientId(client._id)}
+                      className="gap-2 p-2"
+                    >
+                      <div className="flex size-6 items-center justify-center rounded-sm border">
+                        <Users className="size-3 shrink-0" />
+                      </div>
+                      <span className="flex-1 truncate">{client.name}</span>
+                      {client._id === selectedClient?._id && (
+                        <Check className="size-4 shrink-0 text-muted-foreground" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowNewClient(true)} className="gap-2 p-2">
+                  <div className="flex size-6 items-center justify-center rounded-sm border border-dashed">
+                    <Plus className="size-3 shrink-0" />
+                  </div>
+                  <span>Add client</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainLinks.map((link) => (
-                <SidebarMenuItem key={link.to}>
-                  <SidebarMenuButton
-                    render={<Link to={link.to} />}
-                    tooltip={link.label}
-                    isActive={location.pathname === link.to}
-                  >
-                    <link.icon />
-                    <span>{link.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link to="/" />}
+                  tooltip="Carousels"
+                  isActive={location.pathname === "/"}
+                >
+                  <LayoutDashboard />
+                  <span>Carousels</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link to="/create" />}
+                  tooltip="New Carousel"
+                  isActive={location.pathname === "/create"}
+                >
+                  <Plus />
+                  <span>New Carousel</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link to="/images" />}
+                  tooltip="Images"
+                  isActive={location.pathname === "/images"}
+                >
+                  <Images />
+                  <span>Images</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Tools */}
+        <SidebarSeparator />
+
         <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {toolLinks.map((link) => (
-                <SidebarMenuItem key={link.to}>
-                  <SidebarMenuButton
-                    render={<Link to={link.to} />}
-                    tooltip={link.label}
-                    isActive={location.pathname === link.to}
-                  >
-                    <link.icon />
-                    <span>{link.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link to="/settings" />}
+                  tooltip="Settings"
+                  isActive={location.pathname === "/settings"}
+                >
+                  <Settings />
+                  <span>Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {/* Client-specific sections */}
-        {clientId && (
-          <>
-            <SidebarSeparator />
-
-            {/* Client header */}
-            <SidebarGroup>
-              <SidebarGroupLabel>
-                {client?.name || "Client"}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      render={<Link to={`/clients/${clientId}`} />}
-                      tooltip="Overview"
-                      isActive={location.pathname === `/clients/${clientId}`}
-                    >
-                      <Users />
-                      <span>Overview</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Content Library */}
-            <SidebarGroup>
-              <SidebarGroupLabel>Content</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {clientContentLinks.map((link) => {
-                    const fullPath = `/clients/${clientId}/${link.to}`;
-                    return (
-                      <SidebarMenuItem key={link.to}>
-                        <SidebarMenuButton
-                          render={<Link to={fullPath} />}
-                          tooltip={link.label}
-                          isActive={location.pathname === fullPath}
-                        >
-                          <link.icon />
-                          <span>{link.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Generate */}
-            <SidebarGroup>
-              <SidebarGroupLabel>Generate</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {clientGenerateLinks.map((link) => {
-                    const fullPath = `/clients/${clientId}/${link.to}`;
-                    return (
-                      <SidebarMenuItem key={link.to}>
-                        <SidebarMenuButton
-                          render={<Link to={fullPath} />}
-                          tooltip={link.label}
-                          isActive={location.pathname === fullPath}
-                        >
-                          <link.icon />
-                          <span>{link.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Manage */}
-            <SidebarGroup>
-              <SidebarGroupLabel>Manage</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {clientManageLinks.map((link) => {
-                    const fullPath = `/clients/${clientId}/${link.to}`;
-                    return (
-                      <SidebarMenuItem key={link.to}>
-                        <SidebarMenuButton
-                          render={<Link to={fullPath} />}
-                          tooltip={link.label}
-                          isActive={location.pathname === fullPath}
-                        >
-                          <link.icon />
-                          <span>{link.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
-        )}
       </SidebarContent>
+
+      {/* User footer */}
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <div className="flex aspect-square size-6 items-center justify-center rounded-md bg-muted text-muted-foreground text-xs font-semibold">
+                    {initials}
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{user?.name}</span>
+                    <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side="right"
+                align="end"
+                sideOffset={4}
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="p-0 font-normal">
+                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground text-xs font-semibold">
+                        {initials}
+                      </div>
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <span className="truncate font-semibold">{user?.name}</span>
+                        <span className="truncate text-xs">{user?.email}</span>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 size-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>
+
+    <Dialog open={showNewClient} onOpenChange={setShowNewClient}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New Client</DialogTitle>
+          <DialogDescription>Add a new client to your account.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="client-name">Name</Label>
+            <Input
+              id="client-name"
+              placeholder="Client name"
+              value={newClientName}
+              onChange={(e) => setNewClientName(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="client-email">Email</Label>
+            <Input
+              id="client-email"
+              type="email"
+              placeholder="client@example.com"
+              value={newClientEmail}
+              onChange={(e) => setNewClientEmail(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="client-password">Password</Label>
+            <Input
+              id="client-password"
+              type="password"
+              placeholder="Min 6 characters"
+              value={newClientPassword}
+              onChange={(e) => setNewClientPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateClient()}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowNewClient(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateClient}
+            disabled={!newClientName.trim() || !newClientEmail.trim() || !newClientPassword.trim() || createClient.isPending}
+          >
+            {createClient.isPending ? "Creating..." : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

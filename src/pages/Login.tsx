@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@quddify/ui/card";
 import { Input } from "@quddify/ui/input";
 import { Button } from "@quddify/ui/button";
 import { Label } from "@quddify/ui/label";
-import api from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -18,10 +19,7 @@ export default function Login() {
     setLoading(true);
     setError("");
     try {
-      const res = await api.post("/auth/login", { email, password });
-      const { token, account_id } = res.data;
-      localStorage.setItem("token", token);
-      if (account_id) localStorage.setItem("account_id", account_id);
+      await login(email, password);
       navigate("/");
     } catch {
       setError("Invalid credentials");
