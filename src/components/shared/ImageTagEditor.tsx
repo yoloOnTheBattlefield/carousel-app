@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Plus, Tag } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import type { ClientImage } from "@/types";
 import { useUpdateImageManualTags } from "@/hooks/useImages";
 

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { useGenerateCarousel } from "@/hooks/useCarousels";
 import { useSelectedClient } from "@/contexts/ClientContext";
+import { VoiceInput } from "@/components/shared/VoiceInput";
 import type { CarouselGoal } from "@/types";
 
 const GOALS: Array<{ value: CarouselGoal; label: string; desc: string }> = [
@@ -54,11 +55,17 @@ export default function CreateCarousel() {
       <div className="max-w-xl mx-auto space-y-6">
         {/* Topic */}
         <div>
-          <label className="text-[12px] text-[#555] font-medium uppercase tracking-wider mb-2 block">Topic</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-[12px] text-[#555] font-medium uppercase tracking-wider">Topic</label>
+            <VoiceInput
+              onTranscript={(text) => setTopic((prev) => prev ? `${prev} ${text}` : text)}
+              disabled={generate.isPending}
+            />
+          </div>
           <textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder='e.g. "5 AI tools that replaced my entire tech stack"'
+            placeholder='Type or use voice — e.g. "5 AI tools that replaced my entire tech stack"'
             rows={3}
             className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 text-[14px] text-white placeholder:text-[#333] focus:border-[#c9a84c] focus:outline-none transition-colors resize-none"
           />

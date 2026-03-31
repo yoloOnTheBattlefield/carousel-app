@@ -1,13 +1,13 @@
-import { Badge } from "@quddify/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@quddify/ui/select";
-import { Images, Upload, Loader2, X, RefreshCw, Star, ChevronDown, Tag, CheckSquare, Square, Trash2, Check, AlertTriangle } from "lucide-react";
+import { Images, Upload, Loader2, X, RefreshCw, Star, Tag, CheckSquare, Square, Trash2, Check, AlertTriangle } from "lucide-react";
 import { useImages, useUploadImages, useTagVocabulary, useRetagImages, useRetryTagImages, useBulkDeleteImages, useUploadProgress } from "@/hooks/useImages";
 import { useSelectedClient } from "@/contexts/ClientContext";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ImageGridSkeleton } from "@/components/shared/LoadingSkeleton";
 import ImageTagEditor from "@/components/shared/ImageTagEditor";
 import type { ClientImage } from "@/types";
-import { useState, useRef, useMemo, useCallback, DragEvent } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
+import type { DragEvent } from "react";
 
 const FILTER_CATEGORIES = [
   { key: "emotion", label: "Emotion" },
@@ -38,7 +38,7 @@ export default function ImageLibrary() {
   const [selectMode, setSelectMode] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
-  const { data, isLoading } = useImages(clientId, { ...filters, limit: "500" });
+  const { data, isLoading } = useImages(clientId ?? undefined, { ...filters, limit: "500" });
   const { data: tagVocab } = useTagVocabulary();
   const images = data?.images ?? [];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -536,7 +536,7 @@ export default function ImageLibrary() {
               <Select
                 key={key}
                 value={filters[key] || "all"}
-                onValueChange={(v) => setFilters({ ...filters, [key]: v === "all" ? "" : v })}
+                onValueChange={(v) => setFilters({ ...filters, [key]: v === "all" ? "" : v ?? "" })}
               >
                 <SelectTrigger className="h-9 w-auto min-w-[120px] bg-[#111] border-[#222] rounded-xl text-[13px] text-[#888] hover:border-[#333] transition-colors [&>svg]:text-[#555]">
                   <SelectValue placeholder={`All ${label}s`} />
@@ -555,7 +555,7 @@ export default function ImageLibrary() {
           {allManualTags.length > 0 && (
             <Select
               value={manualTagFilter || "all"}
-              onValueChange={(v) => setManualTagFilter(v === "all" ? "" : v)}
+              onValueChange={(v) => setManualTagFilter(v === "all" ? "" : v ?? "")}
             >
               <SelectTrigger className="h-9 w-auto min-w-[120px] bg-[#111] border-[#222] rounded-xl text-[13px] text-[#888] hover:border-[#333] transition-colors [&>svg]:text-[#555]">
                 <Tag className="h-3.5 w-3.5 mr-1.5 text-[#c9a84c]" />
@@ -614,7 +614,7 @@ export default function ImageLibrary() {
               <Select
                 key={key}
                 value={filters[key] || "all"}
-                onValueChange={(v) => setFilters({ ...filters, [key]: v === "all" ? "" : v })}
+                onValueChange={(v) => setFilters({ ...filters, [key]: v === "all" ? "" : v ?? "" })}
               >
                 <SelectTrigger className="h-9 w-auto min-w-[120px] bg-[#111] border-[#222] rounded-xl text-[13px] text-[#888] hover:border-[#333] transition-colors [&>svg]:text-[#555]">
                   <SelectValue placeholder={`All ${label}s`} />

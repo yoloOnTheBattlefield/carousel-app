@@ -116,28 +116,30 @@ export default function CarouselEditor() {
     setDownloading(true);
 
     try {
-      // Fetch all slide images as files
-      const files = await Promise.all(
-        renderedSlides.map(async (slide, i) => {
-          const res = await api.get(`/carousels/${id}/slides/${slide.position}/download`, { responseType: "blob" });
-          return new File([res.data], `slide-${i + 1}.png`, { type: "image/png" });
-        })
-      );
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-      // Mobile: use Web Share API to save to camera roll / share to IG
-      if (navigator.canShare?.({ files })) {
-        await navigator.share({
-          files,
-          title: carousel.topic || "Carousel slides",
-        });
+      if (isMobile) {
+        // Mobile: use Web Share API to save to camera roll / share to IG
+        const files = await Promise.all(
+          renderedSlides.map(async (slide, i) => {
+            const res = await api.get(`/carousels/${id}/slides/${slide.position}/download`, { responseType: "blob" });
+            return new File([res.data], `slide-${i + 1}.png`, { type: "image/png" });
+          })
+        );
+
+        if (navigator.canShare?.({ files })) {
+          await navigator.share({ files, title: carousel!.topic || "Carousel slides" });
+        }
       } else {
-        // Desktop fallback: zip download via server
-        const token = localStorage.getItem("token");
-        const accountId = localStorage.getItem("account_id");
-        const params = new URLSearchParams();
-        if (token) params.set("token", token);
-        if (accountId) params.set("account_id", accountId);
-        window.open(`/api/carousels/${id}/download?${params}`, "_blank");
+        // Desktop: download zip via authenticated API call
+        const res = await api.get(`/carousels/${id}/download`, { responseType: "blob" });
+        const url = URL.createObjectURL(res.data);
+        const a = document.createElement("a");
+        a.href = url;
+        const safeTopic = (carousel!.topic || "carousel").replace(/[^a-zA-Z0-9-_ ]/g, "").slice(0, 40).trim();
+        a.download = `${safeTopic}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
       }
     } finally {
       setDownloading(false);
@@ -145,7 +147,7 @@ export default function CarouselEditor() {
   }
 
   async function handleDelete() {
-    await deleteCarousel.mutateAsync(carousel._id);
+    await deleteCarousel.mutateAsync(carousel!._id);
     navigate("/");
   }
 

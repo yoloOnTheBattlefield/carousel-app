@@ -2,11 +2,12 @@ import { cn } from "@quddify/ui";
 
 interface SkeletonProps {
   className?: string;
+  style?: React.CSSProperties;
 }
 
-function Skeleton({ className }: SkeletonProps) {
+function Skeleton({ className, style }: SkeletonProps) {
   return (
-    <div className={cn("animate-pulse rounded-lg bg-[#1a1a1a]", className)} />
+    <div className={cn("animate-pulse rounded-lg bg-[#1a1a1a]", className)} style={style} />
   );
 }
 

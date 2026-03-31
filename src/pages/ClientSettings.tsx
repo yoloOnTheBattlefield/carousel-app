@@ -105,6 +105,7 @@ export default function ClientSettings() {
           ai_integrations: {
             claude_token: claudeKey || null,
             openai_token: openaiKey || null,
+            gemini_token: null,
           },
         },
       },

@@ -112,11 +112,14 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
               </SidebarMenuButton>
             ) : (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  />
+                }
+              >
                   <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                     <Users className="size-4" />
                   </div>
@@ -126,7 +129,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-auto" />
-                </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
@@ -230,11 +232,14 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  />
+                }
+              >
                   <div className="flex aspect-square size-6 items-center justify-center rounded-md bg-muted text-muted-foreground text-xs font-semibold">
                     {initials}
                   </div>
@@ -243,7 +248,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4" />
-                </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
