@@ -11,6 +11,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [duration, setDuration] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -25,6 +26,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   }, []);
 
   async function startRecording() {
+    setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, {
@@ -50,7 +52,10 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         setRecording(false);
 
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        if (blob.size < 1000) return; // too short, ignore
+        if (blob.size < 1000) {
+          setError("Recording too short");
+          return;
+        }
 
         setTranscribing(true);
         try {
@@ -59,9 +64,21 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           const res = await api.post("/voice-notes/transcribe", form);
           if (res.data.text) {
             onTranscript(res.data.text);
+          } else {
+            setError("No speech detected");
           }
-        } catch {
-          // silently fail — user can type instead
+        } catch (err: unknown) {
+          const e = err as { response?: { status?: number; data?: { error?: string } } };
+          const status = e.response?.status;
+          const serverMsg = e.response?.data?.error;
+          if (status === 404) {
+            setError("Transcription endpoint unavailable");
+          } else if (serverMsg) {
+            setError(serverMsg);
+          } else {
+            setError("Transcription failed");
+          }
+          console.error("Voice transcription failed:", err);
         } finally {
           setTranscribing(false);
         }
@@ -71,8 +88,16 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
       setRecording(true);
       setDuration(0);
       timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
-    } catch {
-      // mic permission denied or unavailable
+    } catch (err: unknown) {
+      const e = err as { name?: string };
+      if (e.name === "NotAllowedError") {
+        setError("Microphone permission denied");
+      } else if (e.name === "NotFoundError") {
+        setError("No microphone found");
+      } else {
+        setError("Could not start recording");
+      }
+      console.error("Voice recording failed:", err);
     }
   }
 
@@ -113,14 +138,19 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   }
 
   return (
-    <button
-      onClick={startRecording}
-      disabled={disabled}
-      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#111] border border-[#222] text-[13px] text-[#888] hover:text-white hover:border-[#333] transition-all cursor-pointer disabled:opacity-50"
-      title="Record voice — transcribed to text"
-    >
-      <Mic className="h-4 w-4" />
-      Voice
-    </button>
+    <div className="flex flex-col gap-1">
+      <button
+        onClick={startRecording}
+        disabled={disabled}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#111] border border-[#222] text-[13px] text-[#888] hover:text-white hover:border-[#333] transition-all cursor-pointer disabled:opacity-50"
+        title="Record voice — transcribed to text"
+      >
+        <Mic className="h-4 w-4" />
+        Voice
+      </button>
+      {error && (
+        <span className="text-[11px] text-[#e84057] px-1">{error}</span>
+      )}
+    </div>
   );
 }
