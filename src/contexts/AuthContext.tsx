@@ -20,6 +20,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function decodeJwtRole(token: string): number | null {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const json = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    return typeof json.role === "number" ? json.role : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +42,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem("user");
     if (token && stored) {
       try {
-        setUser(JSON.parse(stored));
+        const parsed = JSON.parse(stored) as User;
+        // Trust the JWT's role over any stale value in localStorage
+        const jwtRole = decodeJwtRole(token);
+        if (jwtRole != null && jwtRole !== parsed.role) {
+          parsed.role = jwtRole;
+          localStorage.setItem("user", JSON.stringify(parsed));
+        }
+        setUser(parsed);
       } catch {
         localStorage.removeItem("user");
       }
