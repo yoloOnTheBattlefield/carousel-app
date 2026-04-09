@@ -1,4 +1,7 @@
-import { cn } from "@quddify/ui";
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+const cn = (...inputs: Parameters<typeof clsx>) => twMerge(clsx(inputs));
 
 interface SkeletonProps {
   className?: string;
