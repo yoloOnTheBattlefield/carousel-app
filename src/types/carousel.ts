@@ -93,5 +93,6 @@ export interface GenerateRequest {
 export interface ChatEditResponse {
   carousel: Carousel;
   updated_slides: Array<{ position: number; copy: string }>;
+  swapped_images?: Array<{ position: number; image_id: string; reason?: string }>;
   assistant_message: string;
 }

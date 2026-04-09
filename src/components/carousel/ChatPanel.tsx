@@ -5,10 +5,10 @@ import { useChatEdit } from "@/hooks/useChatEdit";
 const QUICK_ACTIONS = [
   "Make the hook punchier",
   "Shorten all copy",
+  "Swap the image on slide 1",
+  "Use a brighter photo for the hook",
   "Make the CTA more urgent",
-  "Add a stat to slide 2",
-  "Make it more casual",
-  "Add more contrast between slides",
+  "Change slide 3 to a different image",
 ];
 
 interface ChatPanelProps {
@@ -59,8 +59,8 @@ export function ChatPanel({ carouselId }: ChatPanelProps) {
           <div className="flex flex-col items-center justify-center h-full text-center py-8">
             <Sparkles className="h-8 w-8 text-[#222] mb-3" />
             <p className="text-[#555] text-[13px] font-medium">Chat to edit your slides</p>
-            <p className="text-[#333] text-[12px] mt-1 max-w-[200px]">
-              "Make slide 3 punchier" or "Shorten all copy"
+            <p className="text-[#333] text-[12px] mt-1 max-w-55">
+              Edit copy or swap images — "Make slide 3 punchier" or "Use a different photo on slide 1"
             </p>
           </div>
         ) : (
