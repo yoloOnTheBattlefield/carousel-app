@@ -47,12 +47,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSelectedClient } from "@/contexts/ClientContext";
 import { useCreateClient } from "@/hooks/useClients";
 
-const isClientRole = (role?: number) => role === 2;
-
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, isClient } = useAuth();
   const { clients, selectedClient, setSelectedClientId } = useSelectedClient();
   const createClient = useCreateClient();
   const [showNewClient, setShowNewClient] = useState(false);
@@ -95,8 +93,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   return (
     <>
     <Sidebar collapsible="icon" {...props}>
-      {/* Client picker (hidden entirely for client-role users) */}
-      {!isClientRole(user?.role) && (
+      {/* Client picker (hidden for users who are themselves someone's client) */}
+      {!isClient && (
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

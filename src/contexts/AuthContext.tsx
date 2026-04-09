@@ -7,31 +7,20 @@ export interface User {
   email: string;
   name: string;
   role: number; // 0=admin, 1=owner, 2=member
+  /** Authoritative: true when a Client doc links to this user (they are someone's client, not an agency owner) */
+  is_client_user: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  /** role 2 — client login that only sees their own stuff */
+  /** True when this account is someone else's client — hide agency-only UI */
   isClient: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function decodeJwtRole(token: string): number | null {
-  try {
-    const payload = token.split(".")[1];
-    if (!payload) return null;
-    const json = JSON.parse(
-      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
-    );
-    return typeof json.role === "number" ? json.role : null;
-  } catch {
-    return null;
-  }
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -42,24 +31,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem("user");
     if (token && stored) {
       try {
-        const parsed = JSON.parse(stored) as User;
-        // Trust the JWT's role over any stale value in localStorage
-        const jwtRole = decodeJwtRole(token);
-        if (jwtRole != null && jwtRole !== parsed.role) {
-          parsed.role = jwtRole;
-          localStorage.setItem("user", JSON.stringify(parsed));
-        }
-        setUser(parsed);
+        setUser(JSON.parse(stored));
       } catch {
         localStorage.removeItem("user");
       }
+      // Always re-fetch /auth/me on mount so is_client_user is fresh even
+      // for users who logged in before this signal existed.
+      api
+        .get("/auth/me")
+        .then((res) => {
+          const { user_id, account_id, first_name, last_name, email, role, is_client_user } = res.data;
+          const refreshed: User = {
+            id: user_id,
+            account_id,
+            email,
+            name: [first_name, last_name].filter(Boolean).join(" ") || email.split("@")[0],
+            role: role ?? 1,
+            is_client_user: !!is_client_user,
+          };
+          localStorage.setItem("user", JSON.stringify(refreshed));
+          setUser(refreshed);
+        })
+        .catch(() => {
+          /* 401 handler in api interceptor will redirect */
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.post("/auth/login", { email, password });
-    const { token, account_id, user_id, first_name, last_name, role, email: userEmail } = res.data;
+    const { token, account_id, user_id, first_name, last_name, role, is_client_user, email: userEmail } = res.data;
 
     localStorage.setItem("token", token);
     if (account_id) localStorage.setItem("account_id", account_id);
@@ -70,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: userEmail || email,
       name: [first_name, last_name].filter(Boolean).join(" ") || email.split("@")[0],
       role: role ?? 2,
+      is_client_user: !!is_client_user,
     };
 
     localStorage.setItem("user", JSON.stringify(userData));
@@ -83,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const isClient = user?.role === 2;
+  const isClient = !!user?.is_client_user || user?.role === 2;
 
   return (
     <AuthContext.Provider value={{ user, loading, isClient, login, logout }}>
