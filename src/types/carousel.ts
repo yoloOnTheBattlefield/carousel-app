@@ -86,6 +86,7 @@ export interface GenerateRequest {
   goal?: CarouselGoal;
   slide_count?: number;
   additional_instructions?: string;
+  show_brand_name?: boolean;
 }
 
 // --- Chat edit ---

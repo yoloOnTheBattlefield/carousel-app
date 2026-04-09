@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { useGenerateCarousel } from "@/hooks/useCarousels";
@@ -20,6 +20,25 @@ export default function CreateCarousel() {
   const [goal, setGoal] = useState<CarouselGoal>("saveable_educational");
   const [slideCount, setSlideCount] = useState<number | null>(null);
   const [instructions, setInstructions] = useState("");
+  const [showBrandName, setShowBrandName] = useState(true);
+
+  const brandNameStorageKey = selectedClientId
+    ? `carousel:show_brand_name:${selectedClientId}`
+    : null;
+
+  useEffect(() => {
+    if (!brandNameStorageKey) return;
+    const stored = localStorage.getItem(brandNameStorageKey);
+    setShowBrandName(stored === null ? true : stored === "true");
+  }, [brandNameStorageKey]);
+
+  function toggleShowBrandName() {
+    setShowBrandName((prev) => {
+      const next = !prev;
+      if (brandNameStorageKey) localStorage.setItem(brandNameStorageKey, String(next));
+      return next;
+    });
+  }
 
   const generate = useGenerateCarousel();
 
@@ -31,6 +50,7 @@ export default function CreateCarousel() {
       goal,
       slide_count: slideCount || undefined,
       additional_instructions: instructions.trim() || undefined,
+      show_brand_name: showBrandName,
     });
     navigate(`/carousels/${result.carousel._id}`);
   }
@@ -134,6 +154,33 @@ export default function CreateCarousel() {
             rows={2}
             className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 text-[14px] text-white placeholder:text-[#333] focus:border-[#c9a84c] focus:outline-none transition-colors resize-none"
           />
+        </div>
+
+        {/* Brand name toggle */}
+        <div className="flex items-center justify-between rounded-xl border border-[#222] bg-[#0a0a0a] px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium text-white">
+              Show {selectedClient?.name || "brand"} name on slides
+            </p>
+            <p className="text-[11px] text-[#555] mt-0.5">
+              Adds the brand lockup to the hook and CTA slides
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showBrandName}
+            onClick={toggleShowBrandName}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+              showBrandName ? "bg-[#c9a84c]" : "bg-[#222]"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                showBrandName ? "translate-x-[22px]" : "translate-x-0.5"
+              }`}
+            />
+          </button>
         </div>
 
         {/* Generate */}

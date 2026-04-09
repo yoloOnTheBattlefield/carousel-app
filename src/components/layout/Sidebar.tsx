@@ -95,22 +95,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   return (
     <>
     <Sidebar collapsible="icon" {...props}>
-      {/* Client picker (hidden for client-role users) */}
+      {/* Client picker (hidden entirely for client-role users) */}
+      {!isClientRole(user?.role) && (
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            {isClientRole(user?.role) ? (
-              <SidebarMenuButton size="lg">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Users className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
-                    {selectedClient?.name || "My Account"}
-                  </span>
-                </div>
-              </SidebarMenuButton>
-            ) : (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -164,10 +153,10 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+      )}
 
       <SidebarContent>
         <SidebarGroup>
