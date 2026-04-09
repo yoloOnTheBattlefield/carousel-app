@@ -64,13 +64,19 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   };
 
   const handleCreateClient = () => {
-    if (!newClientName.trim() || !newClientEmail.trim() || !newClientPassword.trim()) return;
+    if (!newClientName.trim()) return;
+    // Email/password are optional — leave blank to create a client for yourself
+    // (no separate login is provisioned; the Client doc lives in your own account).
+    const email = newClientEmail.trim();
+    const password = newClientPassword.trim();
+    if ((email && !password) || (!email && password)) return;
+    const payload: Record<string, string> = { name: newClientName.trim() };
+    if (email && password) {
+      payload.email = email;
+      payload.password = password;
+    }
     createClient.mutate(
-      {
-        name: newClientName.trim(),
-        email: newClientEmail.trim(),
-        password: newClientPassword.trim(),
-      } as Record<string, string>,
+      payload,
       {
         onSuccess: (client: { _id: string }) => {
           setSelectedClientId(client._id);
@@ -275,7 +281,9 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New Client</DialogTitle>
-          <DialogDescription>Add a new client to your account.</DialogDescription>
+          <DialogDescription>
+            Add a new client to your account. Leave email &amp; password blank to create a client for yourself (no separate login).
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
@@ -288,7 +296,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="client-email">Email</Label>
+            <Label htmlFor="client-email">Email <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
             <Input
               id="client-email"
               type="email"
@@ -298,7 +306,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="client-password">Password</Label>
+            <Label htmlFor="client-password">Password <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
             <Input
               id="client-password"
               type="password"
@@ -315,7 +323,12 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </Button>
           <Button
             onClick={handleCreateClient}
-            disabled={!newClientName.trim() || !newClientEmail.trim() || !newClientPassword.trim() || createClient.isPending}
+            disabled={
+              !newClientName.trim() ||
+              // If one of email/password is set, both must be set
+              (!!newClientEmail.trim() !== !!newClientPassword.trim()) ||
+              createClient.isPending
+            }
           >
             {createClient.isPending ? "Creating..." : "Create"}
           </Button>
