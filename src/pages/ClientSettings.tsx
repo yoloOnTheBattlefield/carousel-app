@@ -7,10 +7,12 @@ import { Textarea } from "@quddify/ui/textarea";
 import { Switch } from "@quddify/ui/switch";
 import { Separator } from "@quddify/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@quddify/ui/tabs";
-import { Loader2, Eye, EyeOff, Check, Palette, MessageSquare, MousePointerClick, Key, Sparkles, FileText, Instagram, StickyNote, Upload, Link2 } from "lucide-react";
+import { Loader2, Eye, EyeOff, Check, Palette, MessageSquare, MousePointerClick, Key, Sparkles, FileText, Instagram, StickyNote, Upload, Link2, Plus, Trash2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClient, useUpdateClient, useGenerateVoiceProfile, useUploadProfilePicture } from "@/hooks/useClients";
 import { useSelectedClient } from "@/contexts/ClientContext";
+import api from "@/lib/api";
 import type { BrandKit, VoiceProfile, CtaDefaults } from "@/types";
 
 export default function ClientSettings() {
@@ -535,6 +537,8 @@ export default function ClientSettings() {
             </CardContent>
           </Card>
 
+          <ApifyTokensCard />
+
           <Button onClick={saveIntegrations} disabled={updateClient.isPending}>
             {updateClient.isPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
@@ -546,6 +550,173 @@ export default function ClientSettings() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+interface ApifyToken {
+  _id: string;
+  label: string;
+  token: string;
+  status: "active" | "limit_reached" | "disabled";
+  usage_count: number;
+  last_used_at: string | null;
+  last_error?: string;
+}
+
+function ApifyTokensCard() {
+  const qc = useQueryClient();
+  const [newToken, setNewToken] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+
+  const { data, isLoading } = useQuery<{ tokens: ApifyToken[] }>({
+    queryKey: ["apify-tokens"],
+    queryFn: () => api.get("/apify-tokens").then((r) => r.data),
+  });
+
+  const addToken = useMutation({
+    mutationFn: (body: { token: string; label: string }) =>
+      api.post("/apify-tokens", body).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["apify-tokens"] });
+      setNewToken("");
+      setNewLabel("");
+      setShowAdd(false);
+      toast.success("Apify token added");
+    },
+    onError: () => toast.error("Failed to add token"),
+  });
+
+  const deleteToken = useMutation({
+    mutationFn: (id: string) => api.delete(`/apify-tokens/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["apify-tokens"] });
+      toast.success("Token deleted");
+    },
+  });
+
+  const resetToken = useMutation({
+    mutationFn: (id: string) => api.post(`/apify-tokens/${id}/reset`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["apify-tokens"] });
+      toast.success("Token reset to active");
+    },
+  });
+
+  const tokens = data?.tokens || [];
+
+  const STATUS_BADGE: Record<string, string> = {
+    active: "bg-emerald-500/10 text-emerald-400",
+    limit_reached: "bg-yellow-500/10 text-yellow-400",
+    disabled: "bg-red-500/10 text-red-400",
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Apify Tokens</CardTitle>
+            <CardDescription>Used for Instagram scraping in outreach and deep scrape</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setShowAdd(!showAdd)}>
+            <Plus className="size-4 mr-1" />
+            Add Token
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {showAdd && (
+          <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+            <div className="space-y-2">
+              <Label htmlFor="apify-label">Label (optional)</Label>
+              <Input
+                id="apify-label"
+                placeholder="e.g. Main account"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apify-token">Apify API Token</Label>
+              <Input
+                id="apify-token"
+                type="password"
+                placeholder="apify_api_..."
+                value={newToken}
+                onChange={(e) => setNewToken(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => addToken.mutate({ token: newToken, label: newLabel })}
+                disabled={!newToken.trim() || addToken.isPending}
+              >
+                {addToken.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4 mr-1" />}
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {tokens.length === 0 && !isLoading && !showAdd && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No Apify tokens configured. Add one to enable Instagram scraping.
+          </p>
+        )}
+
+        {tokens.map((t) => (
+          <div key={t._id} className="flex items-center gap-3 rounded-lg border px-3 py-2.5">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium truncate">
+                  {t.label || "Unnamed token"}
+                </p>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_BADGE[t.status] || ""}`}>
+                  {t.status.replace("_", " ")}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground font-mono mt-0.5">{t.token}</p>
+              {t.last_error && (
+                <p className="text-xs text-red-400 mt-0.5 truncate">{t.last_error}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {t.status === "limit_reached" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => resetToken.mutate(t._id)}
+                  title="Reset to active"
+                >
+                  <RotateCcw className="size-3.5" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-red-400"
+                onClick={() => deleteToken.mutate(t._id)}
+                title="Delete token"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 

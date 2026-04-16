@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Plus, Clock, ChevronRight, LayoutDashboard } from "lucide-react";
+import { Plus, Clock, ChevronRight, LayoutDashboard, Instagram } from "lucide-react";
 import { useCarousels } from "@/hooks/useCarousels";
 import { useSelectedClient } from "@/contexts/ClientContext";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -113,13 +113,22 @@ export default function Dashboard() {
               : "Create your first carousel in 60 seconds"}
           </p>
         </div>
-        <Link
-          to="/create"
-          className="flex items-center gap-2 bg-[#c9a84c] text-black font-semibold px-5 py-2.5 rounded-xl text-[13px] hover:bg-[#d4b55a] transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New Carousel
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/outreach"
+            className="flex items-center gap-2 bg-[#111] border border-[#222] text-white font-semibold px-5 py-2.5 rounded-xl text-[13px] hover:border-[#333] transition-colors"
+          >
+            <Instagram className="h-4 w-4" />
+            Outreach
+          </Link>
+          <Link
+            to="/create"
+            className="flex items-center gap-2 bg-[#c9a84c] text-black font-semibold px-5 py-2.5 rounded-xl text-[13px] hover:bg-[#d4b55a] transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            New Carousel
+          </Link>
+        </div>
       </div>
 
       {/* Grid */}

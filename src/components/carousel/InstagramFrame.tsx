@@ -1,13 +1,17 @@
 import { useState, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Send, Bookmark } from "lucide-react";
-import type { Carousel, Client } from "@/types";
+import { Heart, MessageCircle, Send, Bookmark, ImageIcon, X, Loader2 } from "lucide-react";
+import type { Carousel, Client, ClientImage } from "@/types";
 
 interface InstagramFrameProps {
   carousel: Carousel;
   client: Client | null;
+  availableImages?: ClientImage[];
+  swappingSlide?: number | null;
+  onSwapImage?: (position: number, imageId: string) => void;
 }
 
-export function InstagramFrame({ carousel, client }: InstagramFrameProps) {
+export function InstagramFrame({ carousel, client, availableImages, swappingSlide, onSwapImage }: InstagramFrameProps) {
+  const [showPicker, setShowPicker] = useState(false);
   const slides = carousel.slides || [];
   const [current, setCurrent] = useState(0);
   const dragRef = useRef({ startX: 0, dragging: false, startTranslate: 0 });
@@ -89,7 +93,7 @@ export function InstagramFrame({ carousel, client }: InstagramFrameProps) {
           }}
         >
           {slides.map((slide, i) => (
-            <div key={i} className="shrink-0" style={{ width: slideWidth, height: slideWidth * 1.25 }}>
+            <div key={i} className="shrink-0 relative group/slide" style={{ width: slideWidth, height: slideWidth * 1.25 }}>
               {slide.rendered_key ? (
                 <img
                   src={slide.rendered_url}
@@ -101,6 +105,20 @@ export function InstagramFrame({ carousel, client }: InstagramFrameProps) {
                 <div className="w-full h-full bg-[#111] flex items-center justify-center">
                   <p className="text-[#555] text-sm">Slide {i + 1}</p>
                 </div>
+              )}
+              {/* Swap image button — visible on hover when this is the current slide */}
+              {onSwapImage && i === current && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowPicker(true); }}
+                  className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg opacity-0 group-hover/slide:opacity-100 transition-opacity cursor-pointer hover:bg-black/90 pointer-events-auto"
+                >
+                  {swappingSlide === slide.position ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <ImageIcon className="h-3 w-3" />
+                  )}
+                  {slide.image_key ? "Swap Photo" : "Add Photo"}
+                </button>
               )}
             </div>
           ))}
@@ -150,6 +168,49 @@ export function InstagramFrame({ carousel, client }: InstagramFrameProps) {
       <div className="ig-caption-row px-3 pb-3">
         <p className="text-[10px] text-[#555] uppercase tracking-wide">2 hours ago</p>
       </div>
+
+      {/* Photo picker modal */}
+      {showPicker && onSwapImage && availableImages && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowPicker(false)}>
+          <div className="bg-[#111] border border-[#222] rounded-2xl w-[480px] max-h-[70vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#222]">
+              <p className="text-[14px] font-semibold text-white">
+                Swap photo — Slide {slides[current]?.position}
+              </p>
+              <button onClick={() => setShowPicker(false)} className="text-[#555] hover:text-white cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-3 overflow-y-auto max-h-[calc(70vh-52px)]">
+              <div className="grid grid-cols-4 gap-2">
+                {availableImages.map((img) => {
+                  const isCurrentImage = slides[current]?.image_id === img._id;
+                  return (
+                    <button
+                      key={img._id}
+                      onClick={() => {
+                        onSwapImage(slides[current].position, img._id);
+                        setShowPicker(false);
+                      }}
+                      disabled={isCurrentImage}
+                      className={`aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                        isCurrentImage
+                          ? "border-[#c9a84c] opacity-50"
+                          : "border-transparent hover:border-[#c9a84c]"
+                      }`}
+                    >
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  );
+                })}
+              </div>
+              {availableImages.length === 0 && (
+                <p className="text-[#555] text-[13px] text-center py-8">No images available</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

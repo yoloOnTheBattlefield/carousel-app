@@ -25,6 +25,16 @@ function Breadcrumbs() {
     );
   }
 
+  if (location.pathname === "/outreach") {
+    return (
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-foreground transition-colors">Carousels</Link>
+        <ChevronRight className="h-3 w-3" />
+        <span className="text-foreground font-medium">Outreach</span>
+      </nav>
+    );
+  }
+
   if (isCarouselEditor && carousel) {
     return (
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">

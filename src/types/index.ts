@@ -5,3 +5,8 @@ export type {
   CarouselConfidence, CarouselAngle, Carousel, CarouselJob,
   GenerateRequest, ChatEditResponse,
 } from "./carousel";
+export type {
+  CTAMechanism, ProspectCTA, InferredBrand, TopPerformingAngle,
+  ProspectProfileData, ProspectStatus, ProspectProfile,
+  ScrapeRequest, OutreachGenerateRequest, UpdateProfileRequest,
+} from "./outreach";

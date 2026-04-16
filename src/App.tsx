@@ -14,6 +14,7 @@ const CreateCarousel = lazy(() => import("@/pages/CreateCarousel"));
 const CarouselEditor = lazy(() => import("@/pages/CarouselEditor"));
 const ImageLibrary = lazy(() => import("@/pages/ImageLibrary"));
 const ClientSettings = lazy(() => import("@/pages/ClientSettings"));
+const OutreachCreate = lazy(() => import("@/pages/OutreachCreate"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,7 @@ export default function App() {
               <Route path="/create" element={<ErrorBoundary><Suspense fallback={<PageFallback />}><CreateCarousel /></Suspense></ErrorBoundary>} />
               <Route path="/carousels/:id" element={<ErrorBoundary><Suspense fallback={<PageFallback />}><CarouselEditor /></Suspense></ErrorBoundary>} />
               <Route path="/images" element={<ErrorBoundary><Suspense fallback={<PageFallback skeleton={<ImageGridSkeleton />} />}><ImageLibrary /></Suspense></ErrorBoundary>} />
+              <Route path="/outreach" element={<ErrorBoundary><Suspense fallback={<PageFallback />}><OutreachCreate /></Suspense></ErrorBoundary>} />
               <Route path="/settings" element={<ErrorBoundary><Suspense fallback={<PageFallback />}><ClientSettings /></Suspense></ErrorBoundary>} />
             </Route>
           </Routes>

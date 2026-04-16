@@ -44,7 +44,8 @@ export interface ClientImage {
   last_used_at: string | null;
   used_in_carousels: string[];
   status: "processing" | "ready" | "failed" | "archived";
-  source: "google_drive" | "manual_upload" | "ai_generated";
+  source: "google_drive" | "manual_upload" | "ai_generated" | "prospect_scrape";
+  url?: string;
   manual_tags: string[];
   summary: string;
   thumbnail_url?: string;

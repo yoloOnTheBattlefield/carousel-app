@@ -9,11 +9,13 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { useCarousel, useCarouselJob, useDeleteCarousel, useRegenerateCarousel } from "@/hooks/useCarousels";
 import { useClient } from "@/hooks/useClients";
 import { InstagramFrame } from "@/components/carousel/InstagramFrame";
 import { ChatPanel } from "@/components/carousel/ChatPanel";
+import type { ClientImage } from "@/types";
 
 interface ToggleOption {
   key: string;
@@ -83,6 +85,7 @@ export default function CarouselEditor() {
     setToggleState((prev) => ({ ...prev, [key]: enabled }));
   }
 
+  const qc = useQueryClient();
   const { data: carousel, isLoading } = useCarousel(id);
   const { data: carouselClient } = useClient(carousel?.client_id);
   const { data: job } = useCarouselJob(
@@ -90,6 +93,34 @@ export default function CarouselEditor() {
   );
   const deleteCarousel = useDeleteCarousel();
   const regenerate = useRegenerateCarousel();
+  const [swappingSlide, setSwappingSlide] = useState<number | null>(null);
+
+  // Fetch available images for swap — prospect images for outreach, client images otherwise
+  const isOutreach = carousel?.is_outreach;
+  const prospectProfileId = carousel?.prospect_profile_id;
+  const { data: swapImages } = useQuery<ClientImage[]>({
+    queryKey: ["swap-images", id, isOutreach ? prospectProfileId : carousel?.client_id],
+    queryFn: () => {
+      if (isOutreach && prospectProfileId) {
+        return api.get(`/outreach/${prospectProfileId}/images`).then((r) => r.data);
+      }
+      return api.get("/client-images", { params: { client_id: carousel?.client_id, limit: 50 } }).then((r) => r.data.images || r.data);
+    },
+    enabled: !!carousel && carousel.status === "ready",
+  });
+
+  async function handleSwapImage(position: number, imageId: string) {
+    if (!id) return;
+    setSwappingSlide(position);
+    try {
+      await api.post(`/carousels/${id}/slides/${position}/rerender`, { image_id: imageId });
+      qc.invalidateQueries({ queryKey: ["carousels", "detail", id] });
+    } catch (err) {
+      console.error("Swap failed:", err);
+    } finally {
+      setSwappingSlide(null);
+    }
+  }
 
   if (isLoading || !carousel) {
     return (
@@ -261,7 +292,13 @@ export default function CarouselEditor() {
                 ${!toggleState.ig_caption ? ".ig-wrap .ig-caption-row { display: none !important; }" : ""}
               `}</style>
               <div className="ig-wrap">
-                <InstagramFrame carousel={carousel} client={carouselClient ?? null} />
+                <InstagramFrame
+                  carousel={carousel}
+                  client={carouselClient ?? null}
+                  availableImages={swapImages}
+                  swappingSlide={swappingSlide}
+                  onSwapImage={handleSwapImage}
+                />
               </div>
             </div>
 
@@ -294,6 +331,26 @@ export default function CarouselEditor() {
                 {carousel.confidence.explanation && (
                   <p className="text-[#888] text-[12px]">{carousel.confidence.explanation}</p>
                 )}
+              </div>
+            )}
+
+            {carousel.cost?.total_usd > 0 && (
+              <div className="bg-[#111] border border-[#222] rounded-xl p-4" style={{ maxWidth: 420, margin: "0 auto" }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[12px] text-[#555] font-medium uppercase tracking-wider">Generation Cost</span>
+                  <span className="text-white text-[16px] font-bold">${carousel.cost.total_usd.toFixed(4)}</span>
+                </div>
+                <div className="flex items-center gap-4 text-[12px]">
+                  {carousel.cost.apify_usd > 0 && (
+                    <span className="text-[#888]">Apify <span className="text-white font-medium">${carousel.cost.apify_usd.toFixed(4)}</span></span>
+                  )}
+                  {carousel.cost.claude_usd > 0 && (
+                    <span className="text-[#888]">Claude <span className="text-white font-medium">${carousel.cost.claude_usd.toFixed(4)}</span></span>
+                  )}
+                  {carousel.cost.openai_usd > 0 && (
+                    <span className="text-[#888]">OpenAI <span className="text-white font-medium">${carousel.cost.openai_usd.toFixed(4)}</span></span>
+                  )}
+                </div>
               </div>
             )}
           </div>

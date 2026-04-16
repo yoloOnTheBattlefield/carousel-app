@@ -9,6 +9,7 @@ import {
   Users,
   ChevronsUpDown,
   Check,
+  Instagram,
 } from "lucide-react";
 import {
   Sidebar,
@@ -184,6 +185,16 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 >
                   <Plus />
                   <span>New Carousel</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link to="/outreach" />}
+                  tooltip="Outreach"
+                  isActive={location.pathname === "/outreach"}
+                >
+                  <Instagram />
+                  <span>Outreach</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

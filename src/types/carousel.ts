@@ -47,6 +47,14 @@ export interface CarouselAngle {
   why_this_angle: string;
 }
 
+export interface CarouselCost {
+  apify_usd: number;
+  claude_usd: number;
+  openai_usd: number;
+  total_usd: number;
+  breakdown: Array<{ label: string; usd: number }>;
+}
+
 export interface Carousel {
   _id: string;
   client_id: string;
@@ -59,6 +67,9 @@ export interface Carousel {
   confidence: CarouselConfidence;
   angle: CarouselAngle;
   strategy_notes: string;
+  cost?: CarouselCost;
+  prospect_profile_id?: string;
+  is_outreach?: boolean;
   status: CarouselStatus;
   generation_log: string[];
   created_at: string;
