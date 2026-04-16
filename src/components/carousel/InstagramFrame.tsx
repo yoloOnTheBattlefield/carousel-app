@@ -199,7 +199,7 @@ export function InstagramFrame({ carousel, client, availableImages, swappingSlid
                           : "border-transparent hover:border-[#c9a84c]"
                       }`}
                     >
-                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                      <img src={img.thumbnail_url || img.url} alt="" className="w-full h-full object-cover" />
                     </button>
                   );
                 })}

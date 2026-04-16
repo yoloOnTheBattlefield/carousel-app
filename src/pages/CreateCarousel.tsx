@@ -20,7 +20,7 @@ export default function CreateCarousel() {
   const [goal, setGoal] = useState<CarouselGoal>("saveable_educational");
   const [slideCount, setSlideCount] = useState<number | null>(null);
   const [instructions, setInstructions] = useState("");
-  const [showBrandName, setShowBrandName] = useState(true);
+  const [showBrandName, setShowBrandName] = useState(false);
 
   const brandNameStorageKey = selectedClientId
     ? `carousel:show_brand_name:${selectedClientId}`
